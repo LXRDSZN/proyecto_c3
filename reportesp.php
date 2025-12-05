@@ -72,6 +72,27 @@
             </div>
         </div>
 
+        <!-- Opciones de descarga -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="download-section">
+                    <div class="download-header">
+                        <h4><i class="fas fa-download me-2"></i>Opciones de Descarga y Visualización</h4>
+                    </div>
+                    <div class="download-body text-center">
+                        <div class="btn-group" role="group">
+                            <a href="reporte_personal_pdf.php" class="btn btn-danger btn-lg" target="_blank">
+                                <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+                            </a>
+                            <button onclick="window.print()" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-printer me-2"></i>Imprimir Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Estadísticas del reporte -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
@@ -387,6 +408,66 @@
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             font-weight: 600;
+        }
+
+        /* Estilos para sección de descarga */
+        .download-section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+            overflow: hidden;
+            border: 2px solid #f1f5f9;
+        }
+
+        .download-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .download-header h4 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .download-body {
+            padding: 2rem;
+        }
+
+        .btn-lg {
+            padding: 0.75rem 2rem;
+            font-size: 1.1rem;
+            margin: 0.25rem;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(108, 117, 125, 0.3);
+        }
+
+        /* Estilos para impresión */
+        @media print {
+            .btn, .download-section, .no-print { 
+                display: none !important; 
+            }
+            .container { 
+                max-width: 100% !important; 
+            }
+            .report-header { 
+                page-break-after: avoid; 
+            }
+            .table { 
+                font-size: 12px; 
+            }
         }
     </style>
 

@@ -6,113 +6,98 @@ if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated']) {
 }
 
 require_once('config/conexion.php');
-require_once('fpdf.php');
+// Generar reporte HTML para PDF
 
 try {
     $db = new Database();
     $conexion = $db->getConnection();
-} catch (Exception $e) {
-    die("Error de conexión: " . $e->getMessage());
-}
-
-class PDF extends FPDF
-{
-    // Cabecera de página
-    function Header()
-    {
-        $this->SetFont('Arial','B',15);
-        $this->Cell(0,10,'CECYTE - REPORTE DE PERSONAL',0,1,'C');
-        $this->Ln(10);
+    
+    // Obtener datos
+    $sql = "SELECT * FROM personal ORDER BY id ASC";
+    $resultado = $conexion->query($sql);
+    
+    if (!$resultado) {
+        die("Error en la consulta: " . $conexion->error);
     }
-
-    // Pie de página
-    function Footer()
-    {
-        // Posición: a 1,5 cm del final
-        $this->SetY(-15);
-        $this->SetFont('Arial','I',8);
-        $this->Cell(0,10,'Pagina '.$this->PageNo().' - Generado: '.date('d/m/Y H:i:s'),0,0,'C');
-    }
-
-    // Tabla de datos
-    function BasicTable($header, $data)
-    {
-        // Cabecera
-        $this->SetFont('Arial','B',10);
-        $this->SetFillColor(231, 76, 60); // Color rojo para personal
-        $this->SetTextColor(255, 255, 255);
+    
+    // Generar HTML para PDF
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Reporte de Personal</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .title { font-size: 20px; font-weight: bold; color: #333; }
+            .info { font-size: 12px; color: #666; margin: 5px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #667eea; color: white; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .footer { margin-top: 30px; font-size: 10px; text-align: center; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
+            @media print { body { margin: 0; } .no-print { display: none; } }
+        </style>
+    </head>
+    <body>
+        <div class="no-print" style="text-align: center; margin-bottom: 10px;">
+            <button onclick="window.print()" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">🖨️ Imprimir / Guardar como PDF</button>
+        </div>
         
-        $widths = array(20, 50, 40, 30, 50); // Anchos de columnas
+        <div class="header">
+            <div class="title">CECYTE - REPORTE DE PERSONAL</div>
+            <div class="info">Generado el: <?php echo date('d/m/Y H:i:s'); ?></div>
+            <div class="info">Total de personal: <?php echo $resultado->num_rows; ?></div>
+        </div>
         
-        for($i = 0; $i < count($header); $i++) {
-            $this->Cell($widths[$i], 8, $header[$i], 1, 0, 'C', true);
-        }
-        $this->Ln();
-
-        // Datos
-        $this->SetFont('Arial','',9);
-        $this->SetTextColor(0, 0, 0);
-        $fill = false;
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Cargo</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($resultado->num_rows > 0): ?>
+                    <?php while ($row = $resultado->fetch_assoc()): ?>
+                    <tr>
+                        <td><?php echo $row['id']; ?></td>
+                        <td><?php echo htmlspecialchars($row['nombre']); ?></td>
+                        <td><?php echo htmlspecialchars($row['cargo']); ?></td>
+                        <td><?php echo htmlspecialchars($row['telefono']); ?></td>
+                        <td><?php echo htmlspecialchars($row['email']); ?></td>
+                    </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="5" style="text-align: center; font-style: italic;">No hay personal registrado</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
         
-        foreach($data as $row)
-        {
-            if ($fill) {
-                $this->SetFillColor(245, 245, 245);
-            } else {
-                $this->SetFillColor(255, 255, 255);
-            }
-            
-            $this->Cell($widths[0], 7, $row['id'], 1, 0, 'C', true);
-            $this->Cell($widths[1], 7, substr($row['nombre'], 0, 25), 1, 0, 'L', true);
-            $this->Cell($widths[2], 7, substr($row['cargo'], 0, 20), 1, 0, 'L', true);
-            $this->Cell($widths[3], 7, $row['telefono'], 1, 0, 'C', true);
-            $this->Cell($widths[4], 7, substr($row['email'], 0, 25), 1, 0, 'L', true);
-            $this->Ln();
-            $fill = !$fill;
-        }
-    }
-}
-
-// Obtener datos
-$sql = "SELECT * FROM personal ORDER BY id DESC";
-$resultado = $conexion->query($sql);
-
-if (!$resultado) {
-    die("Error en la consulta: " . $conexion->error);
-}
-
-$data = array();
-while ($row = $resultado->fetch_assoc()) {
-    $data[] = $row;
-}
-
-// Crear PDF
-$pdf = new PDF('P', 'mm', 'A4'); // Portrait para personal
-$pdf->AddPage();
-
-// Información del reporte
-$pdf->SetFont('Arial','B',10);
-$pdf->Cell(0, 8, 'Fecha de generacion: ' . date('d/m/Y H:i:s'), 0, 1, 'L');
-$pdf->Cell(0, 8, 'Total de personal: ' . count($data), 0, 1, 'L');
-$pdf->Ln(5);
-
-// Cabeceras de la tabla
-$header = array('ID', 'Nombre', 'Cargo', 'Telefono', 'Email');
-
-// Generar tabla
-if (count($data) > 0) {
-    $pdf->BasicTable($header, $data);
-} else {
-    $pdf->SetFont('Arial','I',12);
-    $pdf->Cell(0, 10, 'No hay registros de personal para mostrar.', 0, 1, 'C');
-}
-
-// Cerrar conexión
-if (isset($db)) {
+        <div class="footer">
+            <p>Sistema CECYTE - <?php echo date('Y'); ?> | Reporte generado el <?php echo date('d/m/Y H:i:s'); ?></p>
+        </div>
+        
+        <script>
+            // Auto-abrir diálogo de impresión después de 1 segundo
+            setTimeout(function() {
+                if (confirm('¿Deseas imprimir o guardar este reporte como PDF?')) {
+                    window.print();
+                }
+            }, 1000);
+        </script>
+    </body>
+    </html>
+    <?php
+    
     $db->closeConnection();
+    
+} catch (Exception $e) {
+    die("Error: " . $e->getMessage());
 }
-
-// Enviar PDF
-$filename = 'reporte_personal_' . date('Y-m-d_H-i-s') . '.pdf';
-$pdf->Output('D', $filename);
 ?>
