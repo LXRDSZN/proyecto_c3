@@ -11,7 +11,6 @@
 </head>
 
 <body class="dashboard-container">
-
     <?php
     session_start();
     if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated']) {
@@ -26,12 +25,23 @@
     $tipo_mensaje_mantto = '';
     $tipo_mensaje_personal = '';
 
+    // Obtener tipo de operación
+    $tipo_actual = isset($_GET['tipo']) ? $_GET['tipo'] : 'mantenimiento';
+
     try {
         $db = new Database();
         $conexion = $db->getConnection();
 
+        // Si no hay tipo específico, mostrar selector
+        if (!isset($_GET['tipo'])) {
+            $mostrar_selector = true;
+        } else {
+            $mostrar_selector = false;
+        }
+
+        // Procesar inserción de mantenimiento
         if (isset($_POST['insert_mantto'])) {
-            $ID = trim($_POST['ID']);
+            $ID = intval(trim($_POST['ID']));
             $AREA = trim($_POST['AREA']);
             $ACTIVIDAD = trim($_POST['ACTIVIDAD']);
             $FRECUENCIA = trim($_POST['FRECUENCIA']);
@@ -39,62 +49,71 @@
             $OBSERVACIONES = trim($_POST['OBSERVACIONES']);
             $MATERIAL = trim($_POST['MATERIAL']);
 
-            $stmt = $conexion->prepare("SELECT * FROM mantenimiento WHERE id = ?");
+            // Verificar si el ID ya existe
+            $stmt = $conexion->prepare("SELECT id FROM mantenimiento WHERE id = ?");
             $stmt->bind_param("i", $ID);
             $stmt->execute();
             $result = $stmt->get_result();
 
             if ($result->num_rows > 0) {
                 $mensaje_mantto = "El ID $ID ya existe en mantenimiento. Ingresa uno diferente.";
-                $tipo_mensaje_mantto = 'error';
+                $tipo_mensaje_mantto = 'danger';
             } else {
-                $stmt = $conexion->prepare("INSERT INTO mantenimiento (id, areaa, actividad, frecuencia, folio, observaciones, material) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("issssss", $ID, $AREA, $ACTIVIDAD, $FRECUENCIA, $FOLIO, $OBSERVACIONES, $MATERIAL);
+                // Insertar nuevo registro
+                $stmt_insert = $conexion->prepare("INSERT INTO mantenimiento (id, areaa, actividad, frecuencia, folio, observaciones, material) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt_insert->bind_param("issssss", $ID, $AREA, $ACTIVIDAD, $FRECUENCIA, $FOLIO, $OBSERVACIONES, $MATERIAL);
                 
-                if ($stmt->execute()) {
+                if ($stmt_insert->execute()) {
                     $mensaje_mantto = "Registro de mantenimiento insertado correctamente.";
                     $tipo_mensaje_mantto = 'success';
+                    // No redirect, mostrar mensaje en la misma página
                 } else {
-                    $mensaje_mantto = "Error al insertar el registro de mantenimiento.";
-                    $tipo_mensaje_mantto = 'error';
+                    $mensaje_mantto = "Error al insertar el registro: " . $stmt_insert->error;
+                    $tipo_mensaje_mantto = 'danger';
                 }
+                $stmt_insert->close();
             }
             $stmt->close();
         }
 
+        // Procesar inserción de personal
         if (isset($_POST['insert_personal'])) {
-            $ID = trim($_POST['ID']);
+            $ID = intval(trim($_POST['ID']));
             $NOMBRE = trim($_POST['NOMBRE']);
             $CARGO = trim($_POST['CARGO']);
             $TELEFONO = trim($_POST['TELEFONO']);
             $EMAIL = trim($_POST['EMAIL']);
 
-            $stmt = $conexion->prepare("SELECT * FROM personal WHERE id = ?");
+            // Verificar si el ID ya existe
+            $stmt = $conexion->prepare("SELECT id FROM personal WHERE id = ?");
             $stmt->bind_param("i", $ID);
             $stmt->execute();
             $result = $stmt->get_result();
 
             if ($result->num_rows > 0) {
                 $mensaje_personal = "El ID $ID ya existe en personal. Ingresa uno diferente.";
-                $tipo_mensaje_personal = 'error';
+                $tipo_mensaje_personal = 'danger';
             } else {
-                $stmt = $conexion->prepare("INSERT INTO personal (id, nombre, cargo, telefono, email) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("issss", $ID, $NOMBRE, $CARGO, $TELEFONO, $EMAIL);
+                // Insertar nuevo registro
+                $stmt_insert = $conexion->prepare("INSERT INTO personal (id, nombre, cargo, telefono, email) VALUES (?, ?, ?, ?, ?)");
+                $stmt_insert->bind_param("issss", $ID, $NOMBRE, $CARGO, $TELEFONO, $EMAIL);
                 
-                if ($stmt->execute()) {
+                if ($stmt_insert->execute()) {
                     $mensaje_personal = "Registro de personal insertado correctamente.";
                     $tipo_mensaje_personal = 'success';
+                    // No redirect, mostrar mensaje en la misma página
                 } else {
-                    $mensaje_personal = "Error al insertar el registro de personal.";
-                    $tipo_mensaje_personal = 'error';
+                    $mensaje_personal = "Error al insertar el registro: " . $stmt_insert->error;
+                    $tipo_mensaje_personal = 'danger';
                 }
+                $stmt_insert->close();
             }
             $stmt->close();
         }
 
     } catch (Exception $e) {
         $mensaje_mantto = "Error del sistema: " . $e->getMessage();
-        $tipo_mensaje_mantto = 'error';
+        $tipo_mensaje_mantto = 'danger';
     }
     ?>
 
@@ -126,6 +145,25 @@
     </nav>
 
     <div class="container mt-4">
+        
+        <?php if ($mostrar_selector): ?>
+        <!-- Selector de tipo -->
+        <div class="type-selector mb-4">
+            <h2 class="text-center mb-3">
+                <i class="fas fa-plus me-2"></i>Agregar Nuevo Registro
+            </h2>
+            <div class="btn-group w-100" role="group">
+                <a href="insertar.php?tipo=mantenimiento" class="btn btn-inactive">
+                    <i class="fas fa-wrench me-1"></i>Agregar Mantenimiento
+                </a>
+                <a href="insertar.php?tipo=personal" class="btn btn-inactive">
+                    <i class="fas fa-users me-1"></i>Agregar Personal
+                </a>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <?php if ($tipo_actual == 'mantenimiento' && !$mostrar_selector): ?>
         <!-- Sección Mantenimiento -->
         <div class="form-container fade-in">
             <h2 class="form-title">
@@ -133,10 +171,14 @@
             </h2>
 
             <?php if ($mensaje_mantto): ?>
-                <div class="alert alert-<?php echo $tipo_mensaje_mantto; ?>"><?php echo $mensaje_mantto; ?></div>
+                <div class="alert alert-<?php echo $tipo_mensaje_mantto === 'success' ? 'success' : 'danger'; ?> alert-dismissible fade show" role="alert">
+                    <i class="fas fa-<?php echo $tipo_mensaje_mantto === 'success' ? 'check-circle' : 'exclamation-triangle'; ?> me-2"></i>
+                    <?php echo $mensaje_mantto; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
             <?php endif; ?>
 
-            <form action="insertar.php" method="post">
+            <form action="insertar.php?tipo=mantenimiento" method="post">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="id_mantto" class="form-label">ID</label>
@@ -184,52 +226,9 @@
                 </div>
             </form>
         </div>
+        <?php endif; ?>
 
-        <!-- Tabla de Mantenimiento -->
-        <div class="table-container fade-in">
-            <div class="table-header">
-                <h3 class="table-title">
-                    <i class="fas fa-list me-2"></i>Registros de Mantenimiento
-                </h3>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Área</th>
-                            <th>Actividad</th>
-                            <th>Frecuencia</th>
-                            <th>Folio</th>
-                            <th>Observaciones</th>
-                            <th>Materiales</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        try {
-                            $resultado = $conexion->query("SELECT * FROM mantenimiento ORDER BY id DESC");
-                            while ($row = $resultado->fetch_assoc()) {
-                                echo "<tr>
-                                        <td><span class='badge bg-primary'>{$row['id']}</span></td>
-                                        <td>{$row['areaa']}</td>
-                                        <td>{$row['actividad']}</td>
-                                        <td>{$row['frecuencia']}</td>
-                                        <td>{$row['folio']}</td>
-                                        <td>{$row['observaciones']}</td>
-                                        <td>{$row['material']}</td>
-                                      </tr>";
-                            }
-                        } catch (Exception $e) {
-                            echo "<tr><td colspan='7' class='text-center text-muted'>Error al cargar datos</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+        <?php if ($tipo_actual == 'personal' && !$mostrar_selector): ?>
         <!-- Sección Personal -->
         <div class="form-container fade-in">
             <h2 class="form-title">
@@ -237,10 +236,14 @@
             </h2>
 
             <?php if ($mensaje_personal): ?>
-                <div class="alert alert-<?php echo $tipo_mensaje_personal; ?>"><?php echo $mensaje_personal; ?></div>
+                <div class="alert alert-<?php echo $tipo_mensaje_personal === 'success' ? 'success' : 'danger'; ?> alert-dismissible fade show" role="alert">
+                    <i class="fas fa-<?php echo $tipo_mensaje_personal === 'success' ? 'check-circle' : 'exclamation-triangle'; ?> me-2"></i>
+                    <?php echo $mensaje_personal; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
             <?php endif; ?>
 
-            <form action="insertar.php" method="post">
+            <form action="insertar.php?tipo=personal" method="post">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="id_personal" class="form-label">ID</label>
@@ -278,47 +281,7 @@
                 </div>
             </form>
         </div>
-
-        <!-- Tabla de Personal -->
-        <div class="table-container fade-in">
-            <div class="table-header">
-                <h3 class="table-title">
-                    <i class="fas fa-users me-2"></i>Registros de Personal
-                </h3>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Cargo</th>
-                            <th>Teléfono</th>
-                            <th>Email</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        try {
-                            $resultado = $conexion->query("SELECT * FROM personal ORDER BY id DESC");
-                            while ($row = $resultado->fetch_assoc()) {
-                                echo "<tr>
-                                        <td><span class='badge bg-info'>{$row['id']}</span></td>
-                                        <td><strong>{$row['nombre']}</strong></td>
-                                        <td>{$row['cargo']}</td>
-                                        <td>{$row['telefono']}</td>
-                                        <td>{$row['email']}</td>
-                                      </tr>";
-                            }
-                        } catch (Exception $e) {
-                            echo "<tr><td colspan='5' class='text-center text-muted'>Error al cargar datos</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <?php endif; ?>
     </div>
 
     <?php
@@ -328,363 +291,26 @@
     ?>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/enhanced-effects.js"></script>
     <script>
-        // Animaciones avanzadas y efectos interactivos
+        // JavaScript simplificado - sin efectos complejos que interfieren con el formulario
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar partículas de fondo
-            createBackgroundParticles();
-            
-            // Animación de entrada simplificada
+            // Solo animación básica de entrada
             const elements = document.querySelectorAll('.fade-in');
-            elements.forEach((el, index) => {
+            elements.forEach((el) => {
                 el.style.opacity = '1';
                 el.style.transform = 'translateY(0)';
-                setTimeout(() => {
-                    el.style.transition = 'all 0.3s ease';
-                }, index * 100);
             });
 
-            // Validación y efectos avanzados de formularios
-            const forms = document.querySelectorAll('form');
-            forms.forEach(form => {
-                // Animación en envío con efectos visuales
-                form.addEventListener('submit', function(e) {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        // Crear efecto de ondas al hacer clic
-                        createRippleEffect(submitBtn, e);
-                        
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
-                        submitBtn.disabled = true;
-                        submitBtn.style.background = 'linear-gradient(135deg, #a0aec0, #718096)';
-                        
-                        // Animación de pulsación
-                        submitBtn.style.animation = 'pulse 1.5s infinite';
-                    }
-                });
-
-                // Efectos avanzados en inputs
-                const inputs = form.querySelectorAll('.form-input');
-                inputs.forEach(input => {
-                    // Efecto de focus mejorado
-                    input.addEventListener('focus', function() {
-                        this.parentElement.classList.add('input-focused');
-                        createInputGlow(this);
-                        
-                        // Animación del label
-                        const label = this.previousElementSibling;
-                        if (label && label.classList.contains('form-label')) {
-                            label.style.transform = 'translateY(-2px) scale(0.95)';
-                            label.style.color = '#667eea';
-                        }
-                    });
-
-                    input.addEventListener('blur', function() {
-                        this.parentElement.classList.remove('input-focused');
-                        removeInputGlow(this);
-                        
-                        // Restaurar label
-                        const label = this.previousElementSibling;
-                        if (label && label.classList.contains('form-label')) {
-                            label.style.transform = '';
-                            label.style.color = '';
-                        }
-                    });
-
-                    // Validación visual en tiempo real
-                    input.addEventListener('input', function() {
-                        validateInputVisually(this);
-                    });
-
-                    // Efecto de escritura
-                    input.addEventListener('keydown', function(e) {
-                        createTypingEffect(this);
-                    });
-                });
-            });
-
-            // Auto-hide alerts con animación suave
+            // Auto-hide alerts después de 4 segundos
             setTimeout(() => {
                 const alerts = document.querySelectorAll('.alert');
-                alerts.forEach((alert, index) => {
-                    setTimeout(() => {
-                        alert.style.transition = 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
-                        alert.style.transform = 'translateX(-100%) scale(0.8) rotate(-5deg)';
-                        alert.style.opacity = '0';
-                        setTimeout(() => alert.remove(), 600);
-                    }, index * 200);
+                alerts.forEach(alert => {
+                    alert.style.transition = 'opacity 0.5s ease';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
                 });
             }, 4000);
-
-            // Efectos hover mejorados en tablas
-            enhanceTableEffects();
-
-            // Animación de números en badges
-            animateNumbers();
         });
-
-        function createBackgroundParticles() {
-            const particleCount = 12;
-            const container = document.querySelector('.dashboard-container');
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'bg-particle';
-                particle.style.cssText = `
-                    position: absolute;
-                    width: ${Math.random() * 5 + 3}px;
-                    height: ${Math.random() * 5 + 3}px;
-                    background: rgba(102, 126, 234, ${Math.random() * 0.15 + 0.05});
-                    border-radius: 50%;
-                    left: ${Math.random() * 100}%;
-                    top: ${Math.random() * 100}%;
-                    animation: particleFloat ${Math.random() * 20 + 15}s infinite ease-in-out;
-                    pointer-events: none;
-                    z-index: 1;
-                `;
-                container.appendChild(particle);
-            }
-
-            // Añadir estilos CSS para efectos
-            addCustomStyles();
-        }
-
-        function addCustomStyles() {
-            if (!document.getElementById('enhanced-styles')) {
-                const style = document.createElement('style');
-                style.id = 'enhanced-styles';
-                style.textContent = `
-                    @keyframes particleFloat {
-                        0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
-                        25% { transform: translateY(-40px) rotate(90deg) scale(1.2); }
-                        50% { transform: translateY(20px) rotate(180deg) scale(0.8); }
-                        75% { transform: translateY(-20px) rotate(270deg) scale(1.1); }
-                    }
-                    
-                    @keyframes pulse {
-                        0%, 100% { transform: scale(1); }
-                        50% { transform: scale(1.05); }
-                    }
-                    
-                    @keyframes ripple {
-                        to {
-                            transform: scale(4);
-                            opacity: 0;
-                        }
-                    }
-                    
-                    .input-focused .form-label {
-                        color: #667eea !important;
-                        font-weight: 700;
-                    }
-                    
-                    .input-glow {
-                        position: relative;
-                    }
-                    
-                    .input-glow::after {
-                        content: '';
-                        position: absolute;
-                        top: -3px;
-                        left: -3px;
-                        right: -3px;
-                        bottom: -3px;
-                        background: linear-gradient(135deg, #667eea, #764ba2);
-                        border-radius: 19px;
-                        z-index: -1;
-                        opacity: 0.4;
-                        filter: blur(10px);
-                        animation: glowPulse 2s ease-in-out infinite;
-                    }
-                    
-                    @keyframes glowPulse {
-                        0%, 100% { opacity: 0.4; transform: scale(1); }
-                        50% { opacity: 0.6; transform: scale(1.02); }
-                    }
-                    
-                    .typing-effect {
-                        position: relative;
-                        overflow: hidden;
-                    }
-                    
-                    .typing-effect::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 2px;
-                        height: 100%;
-                        background: #667eea;
-                        animation: blink 1s infinite;
-                    }
-                    
-                    @keyframes blink {
-                        0%, 50% { opacity: 1; }
-                        51%, 100% { opacity: 0; }
-                    }
-                    
-                    .number-animate {
-                        display: inline-block;
-                        animation: numberBounce 0.6s ease-out;
-                    }
-                    
-                    @keyframes numberBounce {
-                        0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
-                        50% { transform: scale(1.1) rotate(5deg); }
-                        100% { transform: scale(1) rotate(0deg); opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
-
-        function createRippleEffect(button, event) {
-            const rect = button.getBoundingClientRect();
-            const ripple = document.createElement('span');
-            const size = Math.max(rect.width, rect.height) * 2;
-            const x = event.clientX - rect.left - size / 2;
-            const y = event.clientY - rect.top - size / 2;
-
-            ripple.style.cssText = `
-                position: absolute;
-                width: ${size}px;
-                height: ${size}px;
-                left: ${x}px;
-                top: ${y}px;
-                background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
-                border-radius: 50%;
-                transform: scale(0);
-                animation: ripple 0.8s ease-out;
-                pointer-events: none;
-                z-index: 10;
-            `;
-
-            button.style.position = 'relative';
-            button.style.overflow = 'hidden';
-            button.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 800);
-        }
-
-        function createInputGlow(input) {
-            input.classList.add('input-glow');
-            setTimeout(() => {
-                input.classList.remove('input-glow');
-            }, 3000);
-        }
-
-        function removeInputGlow(input) {
-            input.classList.remove('input-glow');
-        }
-
-        function validateInputVisually(input) {
-            const value = input.value.trim();
-            const isRequired = input.hasAttribute('required');
-            
-            // Remover clases previas
-            input.classList.remove('is-valid', 'is-invalid');
-            
-            if (isRequired && value.length === 0) {
-                input.style.borderColor = '#f56565';
-                input.style.boxShadow = '0 0 0 3px rgba(245, 101, 101, 0.1)';
-                input.classList.add('is-invalid');
-            } else if (value.length > 0) {
-                input.style.borderColor = '#48bb78';
-                input.style.boxShadow = '0 0 0 3px rgba(72, 187, 120, 0.1)';
-                input.classList.add('is-valid');
-                
-                // Efecto de éxito
-                createSuccessEffect(input);
-            } else {
-                input.style.borderColor = '#e2e8f0';
-                input.style.boxShadow = '';
-            }
-        }
-
-        function createTypingEffect(input) {
-            input.classList.add('typing-effect');
-            setTimeout(() => {
-                input.classList.remove('typing-effect');
-            }, 1000);
-        }
-
-        function createSuccessEffect(input) {
-            const checkmark = document.createElement('i');
-            checkmark.className = 'fas fa-check';
-            checkmark.style.cssText = `
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-50%) scale(0);
-                color: #48bb78;
-                font-size: 1.2rem;
-                animation: checkmarkPop 0.4s ease-out forwards;
-                pointer-events: none;
-            `;
-            
-            const container = input.parentElement;
-            container.style.position = 'relative';
-            container.appendChild(checkmark);
-            
-            setTimeout(() => checkmark.remove(), 2000);
-            
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes checkmarkPop {
-                    0% { transform: translateY(-50%) scale(0) rotate(-180deg); }
-                    50% { transform: translateY(-50%) scale(1.2) rotate(-90deg); }
-                    100% { transform: translateY(-50%) scale(1) rotate(0deg); }
-                }
-            `;
-            if (!document.querySelector('style[data-checkmark]')) {
-                style.setAttribute('data-checkmark', 'true');
-                document.head.appendChild(style);
-            }
-        }
-
-        function enhanceTableEffects() {
-            const tableRows = document.querySelectorAll('.table tbody tr');
-            tableRows.forEach((row, index) => {
-                row.style.animationDelay = `${index * 0.1}s`;
-                
-                row.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateX(12px) scale(1.02)';
-                    this.style.zIndex = '10';
-                    
-                    // Efecto de sombra expansiva
-                    this.style.boxShadow = '0 12px 40px rgba(102, 126, 234, 0.15)';
-                });
-                
-                row.addEventListener('mouseleave', function() {
-                    this.style.transform = '';
-                    this.style.zIndex = '';
-                    this.style.boxShadow = '';
-                });
-            });
-        }
-
-        function animateNumbers() {
-            const badges = document.querySelectorAll('.badge');
-            badges.forEach(badge => {
-                const number = parseInt(badge.textContent);
-                if (!isNaN(number)) {
-                    badge.textContent = '0';
-                    let current = 0;
-                    const increment = number / 20;
-                    const timer = setInterval(() => {
-                        current += increment;
-                        if (current >= number) {
-                            badge.textContent = number;
-                            badge.classList.add('number-animate');
-                            clearInterval(timer);
-                        } else {
-                            badge.textContent = Math.floor(current);
-                        }
-                    }, 50);
-                }
-            });
-        }
     </script>
-
 </body>
 </html>

@@ -26,6 +26,50 @@
     } catch (Exception $e) {
         die("Error de conexión: " . $e->getMessage());
     }
+
+    // Variables para búsqueda
+    $busqueda_realizada = false;
+    $resultados_busqueda = [];
+    $tipo_busqueda = '';
+    $termino_busqueda = '';
+
+    // Procesar búsqueda
+    if (isset($_POST['buscar']) && !empty($_POST['termino'])) {
+        $busqueda_realizada = true;
+        $tipo_busqueda = $_POST['tipo'];
+        $termino_busqueda = trim($_POST['termino']);
+        
+        if ($tipo_busqueda == 'mantenimiento') {
+            $sql = "SELECT * FROM mantenimiento WHERE 
+                    areaa LIKE ? OR 
+                    actividad LIKE ? OR 
+                    frecuencia LIKE ? OR 
+                    folio LIKE ? OR 
+                    observaciones LIKE ? OR 
+                    material LIKE ? 
+                    ORDER BY id DESC";
+            $termino_like = "%$termino_busqueda%";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("ssssss", $termino_like, $termino_like, $termino_like, $termino_like, $termino_like, $termino_like);
+        } else {
+            $sql = "SELECT * FROM personal WHERE 
+                    nombre LIKE ? OR 
+                    cargo LIKE ? OR 
+                    telefono LIKE ? OR 
+                    email LIKE ? 
+                    ORDER BY id DESC";
+            $termino_like = "%$termino_busqueda%";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("ssss", $termino_like, $termino_like, $termino_like, $termino_like);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $resultados_busqueda[] = $row;
+        }
+        $stmt->close();
+    }
     ?>
 
     <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea, #764ba2);">
@@ -71,6 +115,23 @@
     </div>
 
     <div class="container-fluid px-4 mt-4">
+        <!-- Mensajes de alerta -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        
         <!-- Barra de búsqueda global -->
         <div class="row mb-4">
             <div class="col-12">
@@ -79,21 +140,21 @@
                         <h4><i class="fas fa-search me-2"></i>Búsqueda Rápida</h4>
                     </div>
                     <div class="search-body">
-                        <form id="searchForm" class="search-form">
+                        <form method="POST" action="inicio.php" class="search-form">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-3">
                                     <label class="form-label">Buscar en:</label>
-                                    <select class="form-select" id="searchType">
-                                        <option value="mantenimiento">🔧 Mantenimiento</option>
-                                        <option value="personal">👥 Personal</option>
+                                    <select class="form-select" name="tipo" required>
+                                        <option value="mantenimiento" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'mantenimiento') ? 'selected' : ''; ?>>🔧 Mantenimiento</option>
+                                        <option value="personal" <?php echo (isset($_POST['tipo']) && $_POST['tipo'] == 'personal') ? 'selected' : ''; ?>>👥 Personal</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Término de búsqueda:</label>
-                                    <input type="text" class="form-control" id="searchTerm" placeholder="Ingresa lo que deseas buscar...">
+                                    <input type="text" class="form-control" name="termino" value="<?php echo htmlspecialchars($termino_busqueda); ?>" placeholder="Ingresa lo que deseas buscar..." required>
                                 </div>
                                 <div class="col-md-3">
-                                    <button type="submit" class="btn btn-search w-100">
+                                    <button type="submit" name="buscar" class="btn btn-search w-100">
                                         <i class="fas fa-search me-1"></i>Buscar
                                     </button>
                                 </div>
@@ -103,6 +164,103 @@
                 </div>
             </div>
         </div>
+
+        <!-- Resultados de búsqueda -->
+        <?php if ($busqueda_realizada): ?>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="search-results">
+                    <div class="search-results-header">
+                        <h4>
+                            <i class="fas fa-search-plus me-2"></i>
+                            Resultados de búsqueda: "<?php echo htmlspecialchars($termino_busqueda); ?>" en <?php echo ucfirst($tipo_busqueda); ?>
+                        </h4>
+                        <span class="results-count"><?php echo count($resultados_busqueda); ?> resultados encontrados</span>
+                    </div>
+                    
+                    <?php if (empty($resultados_busqueda)): ?>
+                        <div class="no-results">
+                            <i class="fas fa-search-minus fa-3x mb-3"></i>
+                            <h5>No se encontraron resultados</h5>
+                            <p>Intenta con otros términos de búsqueda o revisa la ortografía.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table search-table">
+                                <thead>
+                                    <tr>
+                                        <?php if ($tipo_busqueda == 'mantenimiento'): ?>
+                                            <th>ID</th>
+                                            <th>Área</th>
+                                            <th>Actividad</th>
+                                            <th>Frecuencia</th>
+                                            <th>Folio</th>
+                                            <th>Observaciones</th>
+                                            <th>Materiales</th>
+                                            <th>Acciones</th>
+                                        <?php else: ?>
+                                            <th>ID</th>
+                                            <th>Nombre</th>
+                                            <th>Cargo</th>
+                                            <th>Teléfono</th>
+                                            <th>Email</th>
+                                            <th>Acciones</th>
+                                        <?php endif; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($resultados_busqueda as $row): ?>
+                                        <tr class="search-result-row">
+                                            <?php if ($tipo_busqueda == 'mantenimiento'): ?>
+                                                <td><span class='badge bg-primary'><?php echo $row['id']; ?></span></td>
+                                                <td><strong><?php echo htmlspecialchars($row['areaa']); ?></strong></td>
+                                                <td><?php echo htmlspecialchars($row['actividad']); ?></td>
+                                                <td><span class='badge bg-success'><?php echo htmlspecialchars($row['frecuencia']); ?></span></td>
+                                                <td><?php echo htmlspecialchars($row['folio']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['observaciones']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['material']); ?></td>
+                                                <td>
+                                                    <a href='editar.php?id=<?php echo $row['id']; ?>&tipo=mantenimiento' class='btn btn-sm btn-warning'>
+                                                        <i class='fas fa-edit'></i> Editar
+                                                    </a>
+                                                </td>
+                                            <?php else: ?>
+                                                <td><span class='badge bg-info'><?php echo $row['id']; ?></span></td>
+                                                <td>
+                                                    <div class='d-flex align-items-center'>
+                                                        <div class='avatar me-2'>
+                                                            <?php echo strtoupper(substr($row['nombre'], 0, 1)); ?>
+                                                        </div>
+                                                        <strong><?php echo htmlspecialchars($row['nombre']); ?></strong>
+                                                    </div>
+                                                </td>
+                                                <td><span class='badge bg-success'><?php echo htmlspecialchars($row['cargo']); ?></span></td>
+                                                <td>
+                                                    <a href='tel:<?php echo $row['telefono']; ?>' class='text-decoration-none'>
+                                                        <i class='fas fa-phone me-1'></i><?php echo htmlspecialchars($row['telefono']); ?>
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <a href='mailto:<?php echo $row['email']; ?>' class='text-decoration-none'>
+                                                        <i class='fas fa-envelope me-1'></i><?php echo htmlspecialchars($row['email']); ?>
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <a href='editar.php?id=<?php echo $row['id']; ?>&tipo=personal' class='btn btn-sm btn-warning'>
+                                                        <i class='fas fa-edit'></i> Editar
+                                                    </a>
+                                                </td>
+                                            <?php endif; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Dashboard Cards -->
         <div class="row mb-5">
@@ -139,14 +297,20 @@
                                 <i class="fas fa-list"></i>
                                 <span>Ver Todo</span>
                             </a>
-                            <a href="modificar.php?tipo=mantenimiento" class="action-btn edit-btn">
+                            <a href="select.php?tipo=mantenimiento" class="action-btn edit-btn">
                                 <i class="fas fa-edit"></i>
                                 <span>Editar</span>
                             </a>
-                            <a href="reportes.php" class="action-btn report-btn">
-                                <i class="fas fa-file-pdf"></i>
-                                <span>Reportes</span>
-                            </a>
+                            <div class="dropdown">
+                                <button class="action-btn report-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-file-pdf"></i>
+                                    <span>Reportes</span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="reportes.php"><i class="fas fa-eye me-2"></i>Ver Reporte</a></li>
+                                    <li><a class="dropdown-item" href="reporte_mantenimiento_pdf.php"><i class="fas fa-download me-2"></i>Descargar PDF</a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -185,14 +349,20 @@
                                 <i class="fas fa-address-book"></i>
                                 <span>Ver Todo</span>
                             </a>
-                            <a href="modificar.php?tipo=personal" class="action-btn edit-btn">
+                            <a href="select.php?tipo=personal" class="action-btn edit-btn">
                                 <i class="fas fa-user-edit"></i>
                                 <span>Editar</span>
                             </a>
-                            <a href="reportesp.php" class="action-btn report-btn">
-                                <i class="fas fa-file-contract"></i>
-                                <span>Reportes</span>
-                            </a>
+                            <div class="dropdown">
+                                <button class="action-btn report-btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-file-contract"></i>
+                                    <span>Reportes</span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="reportesp.php"><i class="fas fa-eye me-2"></i>Ver Reporte</a></li>
+                                    <li><a class="dropdown-item" href="reporte_personal_pdf.php"><i class="fas fa-download me-2"></i>Descargar PDF</a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -528,6 +698,47 @@
             color: white;
         }
 
+        /* Estilos para dropdowns de reportes */
+        .dropdown {
+            width: 100%;
+        }
+
+        .dropdown-toggle {
+            width: 100%;
+            border: none;
+            background: none;
+            text-align: left;
+        }
+
+        .dropdown-toggle::after {
+            float: right;
+            margin-top: 8px;
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            min-width: 200px;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1.25rem;
+            color: #4a5568;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .dropdown-item i {
+            color: inherit;
+        }
+
         @media (max-width: 768px) {
             .action-grid {
                 grid-template-columns: 1fr;
@@ -536,6 +747,94 @@
             .admin-actions {
                 flex-direction: column;
             }
+        }
+
+        /* Estilos para resultados de búsqueda */
+        .search-results {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+            overflow: hidden;
+            border: 2px solid #f1f5f9;
+        }
+
+        .search-results-header {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-results-header h4 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .results-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .search-table {
+            margin: 0;
+        }
+
+        .search-table thead th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .search-result-row {
+            transition: all 0.3s ease;
+        }
+
+        .search-result-row:hover {
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.05), rgba(56, 161, 105, 0.05));
+            transform: translateX(5px);
+        }
+
+        .search-table td {
+            padding: 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #718096;
+        }
+
+        .no-results i {
+            color: #a0aec0;
+        }
+
+        .no-results h5 {
+            color: #4a5568;
+            margin-bottom: 0.5rem;
+        }
+
+        .avatar {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
         }
     </style>
 

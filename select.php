@@ -26,6 +26,8 @@
     } catch (Exception $e) {
         die("Error de conexión: " . $e->getMessage());
     }
+
+    $tipo = isset($_GET['tipo']) ? $_GET['tipo'] : 'todos';
     ?>
 
     <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea, #764ba2);">
@@ -45,7 +47,7 @@
                         <a class="nav-link" href="insertar.php"><i class="fas fa-plus me-1"></i>Insertar</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="modificar.php"><i class="fas fa-edit me-1"></i>Modificar</a>
+                        <a class="nav-link" href="select.php"><i class="fas fa-edit me-1"></i>Ver</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="select.php"><i class="fas fa-list me-1"></i>Ver Registros</a>
@@ -59,6 +61,25 @@
     </nav>
 
     <div class="container mt-4">
+        <!-- Selector de tipo -->
+        <div class="type-selector mb-4">
+            <h2 class="text-center mb-3">
+                <i class="fas fa-list me-2"></i>Ver Registros
+            </h2>
+            <div class="btn-group w-100" role="group">
+                <a href="select.php?tipo=mantenimiento" class="btn <?php echo $tipo == 'mantenimiento' ? 'btn-active' : 'btn-inactive'; ?>">
+                    <i class="fas fa-wrench me-1"></i>Mantenimiento
+                </a>
+                <a href="select.php?tipo=personal" class="btn <?php echo $tipo == 'personal' ? 'btn-active' : 'btn-inactive'; ?>">
+                    <i class="fas fa-users me-1"></i>Personal
+                </a>
+                <a href="select.php?tipo=todos" class="btn <?php echo $tipo == 'todos' ? 'btn-active' : 'btn-inactive'; ?>">
+                    <i class="fas fa-eye me-1"></i>Ver Todo
+                </a>
+            </div>
+        </div>
+
+        <?php if ($tipo == 'todos'): ?>
         <!-- Estadísticas Generales -->
         <div class="row mb-4">
             <div class="col-md-6 mb-3">
@@ -92,6 +113,9 @@
                 </div>
             </div>
         </div>
+        <?php endif; ?>
+
+        <?php if ($tipo == 'mantenimiento' || $tipo == 'todos'): ?>
 
         <!-- Tabla de Mantenimiento -->
         <div class="table-container fade-in">
@@ -100,7 +124,7 @@
                     <i class="fas fa-wrench me-2"></i>Registros de Mantenimiento
                 </h3>
                 <div>
-                    <a href="reportes.php" class="btn-primary">
+                    <a href="reporte_mantenimiento_pdf.php" class="btn-primary" target="_blank">
                         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
                     </a>
                 </div>
@@ -133,10 +157,15 @@
                                             <td>{$row['folio']}</td>
                                             <td>{$row['observaciones']}</td>
                                             <td>{$row['material']}</td>
+                                            <td>
+                                                <a href='editar.php?id={$row['id']}&tipo=mantenimiento' class='btn btn-sm btn-warning'>
+                                                    <i class='fas fa-edit'></i> Editar
+                                                </a>
+                                            </td>
                                           </tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='7' class='text-center text-muted py-4'>
+                                echo "<tr><td colspan='8' class='text-center text-muted py-4'>
                                         <i class='fas fa-inbox fa-2x mb-2'></i><br>
                                         No hay registros de mantenimiento
                                       </td></tr>";
@@ -149,7 +178,9 @@
                 </table>
             </div>
         </div>
+        <?php endif; ?>
 
+        <?php if ($tipo == 'personal' || $tipo == 'todos'): ?>
         <!-- Tabla de Personal -->
         <div class="table-container fade-in">
             <div class="table-header">
@@ -157,7 +188,7 @@
                     <i class="fas fa-users me-2"></i>Registros de Personal
                 </h3>
                 <div>
-                    <a href="reportesp.php" class="btn-primary">
+                    <a href="reporte_personal_pdf.php" class="btn-primary" target="_blank">
                         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
                     </a>
                 </div>
@@ -172,6 +203,7 @@
                             <th>Cargo</th>
                             <th>Teléfono</th>
                             <th>Email</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -201,6 +233,11 @@
                                                     <i class='fas fa-envelope me-1'></i>{$row['email']}
                                                 </a>
                                             </td>
+                                            <td>
+                                                <a href='editar.php?id={$row['id']}&tipo=personal' class='btn btn-sm btn-warning'>
+                                                    <i class='fas fa-edit'></i> Editar
+                                                </a>
+                                            </td>
                                           </tr>";
                                 }
                             } else {
@@ -217,6 +254,7 @@
                 </table>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
     <?php
@@ -226,6 +264,40 @@
     ?>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    
+    <style>
+        .type-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-active {
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            color: white !important;
+            border: 2px solid #667eea !important;
+            font-weight: 600;
+        }
+
+        .btn-inactive {
+            background: white !important;
+            color: #667eea !important;
+            border: 2px solid #e2e8f0 !important;
+            font-weight: 500;
+        }
+
+        .btn-inactive:hover {
+            background: #f8faff !important;
+            border-color: #667eea !important;
+        }
+        
+        @media (max-width: 768px) {
+            .type-selector .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
     <script src="assets/js/enhanced-effects.js"></script>
     <script>
         // Animaciones específicas para la página de visualización

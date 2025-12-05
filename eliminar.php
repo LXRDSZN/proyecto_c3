@@ -30,6 +30,40 @@
     $mensaje = '';
     $tipo_mensaje = '';
 
+    // Procesar eliminación mediante AJAX o POST directo
+    if (isset($_POST['accion']) && $_POST['accion'] === 'eliminar') {
+        $id = intval($_POST['id']);
+        $tipo = $_POST['tipo'];
+        
+        try {
+            if ($tipo === 'mantenimiento') {
+                $stmt = $conexion->prepare("DELETE FROM mantenimiento WHERE id = ?");
+            } else {
+                $stmt = $conexion->prepare("DELETE FROM personal WHERE id = ?");
+            }
+            
+            $stmt->bind_param("i", $id);
+            
+            if ($stmt->execute()) {
+                if ($stmt->affected_rows > 0) {
+                    $_SESSION['success_message'] = 'Registro eliminado correctamente.';
+                    header("Location: inicio.php");
+                    exit();
+                } else {
+                    $mensaje = 'No se encontró el registro especificado.';
+                    $tipo_mensaje = 'error';
+                }
+            } else {
+                $mensaje = 'Error al eliminar el registro.';
+                $tipo_mensaje = 'error';
+            }
+            $stmt->close();
+        } catch (Exception $e) {
+            $mensaje = 'Error: ' . $e->getMessage();
+            $tipo_mensaje = 'error';
+        }
+    }
+
     // Procesar eliminación de mantenimiento
     if (isset($_POST['eliminar_mantto'])) {
         $id = intval($_POST['id_mantto']);
@@ -102,7 +136,7 @@
                         <a class="nav-link" href="insertar.php"><i class="fas fa-plus me-1"></i>Insertar</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="modificar.php"><i class="fas fa-edit me-1"></i>Modificar</a>
+                        <a class="nav-link" href="select.php"><i class="fas fa-edit me-1"></i>Modificar</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="select.php"><i class="fas fa-list me-1"></i>Ver Registros</a>
